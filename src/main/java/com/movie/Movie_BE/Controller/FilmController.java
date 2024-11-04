@@ -2,6 +2,8 @@ package com.movie.Movie_BE.Controller;
 
 import com.movie.Movie_BE.Model.Film;
 import com.movie.Movie_BE.Service.FilmService;
+import com.movie.Movie_BE.dto.FilmDTO;
+import com.movie.Movie_BE.dto.FilmSummary;
 import com.movie.Movie_BE.dto.Pagination;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -20,37 +22,47 @@ public class FilmController {
     public ResponseEntity<Object> getLatestFilms(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize) {
-        Page<Film> films = filmService.getLatestFilms(page - 1, pageSize);
+        Page<FilmSummary> films = filmService.getLatestFilms(page - 1, pageSize);
         return ResponseEntity.ok(createResponse(films));
     }
+    //get return status 200
 
-    // Tạo một phim mới
+    @GetMapping("/phim/{slug}")
+    public ResponseEntity<Film> getFilmDetailBySlug(@PathVariable String slug) {
+        Film film = filmService.getFilmDetailBySlug(slug);
+        return ResponseEntity.ok(film);
+    }
+
+
     @PostMapping("/phim")
-    public ResponseEntity<Film> createFilm(@RequestBody Film film) {
+    public ResponseEntity<Film> createFilm(@RequestBody FilmDTO film) {
         Film createdFilm = filmService.createFilm(film);
         return ResponseEntity.status(201).body(createdFilm);
     }
-
-    // Cập nhật một phim theo ID
+    //post return status 201
+//
+//
     @PutMapping("/phim/{id}")
     public ResponseEntity<Film> updateFilm(@PathVariable Long id, @RequestBody Film film) {
         Film updatedFilm = filmService.updateFilm(id, film);
         return ResponseEntity.ok(updatedFilm);
     }
-
-    // Xóa một phim theo ID
+//    //put return status 200 or 204
+//
+//
     @DeleteMapping("/phim/{id}")
     public ResponseEntity<Void> deleteFilm(@PathVariable Long id) {
         filmService.deleteFilm(id);
-        return ResponseEntity.noContent().build(); // Trả về 204 No Content
+        return ResponseEntity.noContent().build();
     }
+//    //delete return status 204 (No content)
 
-
-    private Object createResponse(Page<Film> films) {
+    private Object createResponse(Page<FilmSummary> films) {
         return new Object() {
             public boolean status = films.hasContent();
-            public List<Film> items = films.getContent();
+            public List<FilmSummary> items = films.getContent();
             public Pagination pagination = new Pagination(films);
         };
     }
+
 }
