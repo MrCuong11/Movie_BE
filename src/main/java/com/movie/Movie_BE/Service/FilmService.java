@@ -359,7 +359,7 @@ public class FilmService {
 
 
     //search film and sort by newest time
-    public List<Film> searchFilmsByKeywords(String keyword) {
+    public List<FilmSummary> searchFilmsByKeywords(String keyword) {
         String[] keywords = keyword.trim().toLowerCase().split("\\s+");
 
         StringBuilder queryBuilder = new StringBuilder("SELECT f FROM Film f WHERE ");
@@ -377,18 +377,31 @@ public class FilmService {
         TypedQuery<Film> query = entityManager.createQuery(queryBuilder.toString(), Film.class);
         for (int i = 0; i < keywords.length; i++) {
             query.setParameter("keyword" + i, keywords[i]);
-        }//thiết lập các tham số cho truy vấn động (Dùng entityManager để thao tác với db)
-
+        }
 
         List<Film> films = query.getResultList();
 
-
         films.sort((f1, f2) -> {
-            LocalDateTime modifiedTime1 = f1.getModified().getTime();
-            LocalDateTime modifiedTime2 = f2.getModified().getTime();
-            return modifiedTime2.compareTo(modifiedTime1);
+            int yearComparison = Integer.compare(f2.getYear(), f1.getYear());
+            if (yearComparison != 0) {
+                return yearComparison;
+            }
+            return Integer.compare(f2.getView(), f1.getView());
         });
 
-        return films;
+
+        List<FilmSummary> filmSummaries = films.stream().map(film -> {
+            FilmSummary summary = new FilmSummary();
+            summary.setId(film.getId());
+            summary.setName(film.getName());
+            summary.setSlug(film.getSlug());
+            summary.setOrigin_name(film.getOrigin_name());
+            summary.setPoster_url(film.getPoster_url());
+            summary.setThumb_url(film.getThumb_url());
+            summary.setYear(film.getYear());
+            return summary;
+        }).collect(Collectors.toList());
+
+        return filmSummaries;
     }
 }

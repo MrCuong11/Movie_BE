@@ -130,7 +130,7 @@ public class FilmController {
 
     @Operation(
             summary = "Tạo list phim mới",
-            description = "Tạo một list phim mới với các thông tin chi tiết được cung cấp trong request body."
+            description = "Tạo một list phim mới với các thông tin chi tiết được cung cấp trong request body. (nhớ phải thêm dấu [ ] ở đầu giữa các phim)"
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Phim được tạo thành công",
@@ -214,10 +214,10 @@ public class FilmController {
             @ApiResponse(responseCode = "500", description = "Lỗi máy chủ nội bộ")
     })
     @GetMapping("/search")
-    public ResponseEntity<List<Film>> searchFilms(
+    public ResponseEntity<List<FilmSummary>> searchFilms(
             @RequestParam String keyword
     ) {
-        List<Film> films = filmService.searchFilmsByKeywords(keyword);
+        List<FilmSummary> films = filmService.searchFilmsByKeywords(keyword);
         return ResponseEntity.ok(films);
     }
 
