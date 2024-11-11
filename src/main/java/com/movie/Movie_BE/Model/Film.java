@@ -23,8 +23,11 @@ public class Film {
     private String poster_url;
     private String thumb_url;
     private int year;
+    private String type;
 
+    @Lob
     private String content;
+
     private String status;
 
     @Column(name = "timeFilm")
@@ -33,6 +36,7 @@ public class Film {
     private String episode_current;
     private String episode_total;
     private int view;
+
 
     @ElementCollection
     private List<String> actor;
@@ -61,6 +65,9 @@ public class Film {
 
     @OneToMany(mappedBy = "film", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Comment> comments;
+
+    @OneToMany(mappedBy = "film", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Favorite> favorites;
 
     @Embedded
     private Modified modified = new Modified();

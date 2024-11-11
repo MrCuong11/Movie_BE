@@ -1,22 +1,26 @@
 package com.movie.Movie_BE.Service;
 
-import com.movie.Movie_BE.Model.Category;
-import com.movie.Movie_BE.Model.Country;
-import com.movie.Movie_BE.Model.Episode;
-import com.movie.Movie_BE.Model.Film;
-import com.movie.Movie_BE.Repository.CategoryRepository;
-import com.movie.Movie_BE.Repository.CountryRepository;
-import com.movie.Movie_BE.Repository.FilmRepository;
+import com.movie.Movie_BE.Model.*;
+import com.movie.Movie_BE.Repository.*;
+import com.movie.Movie_BE.dto.FavoriteDTO;
 import com.movie.Movie_BE.dto.FilmDTO;
 import com.movie.Movie_BE.dto.FilmSummary;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +32,18 @@ public class FilmService {
     @Autowired
     private CountryRepository countryRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private FavoriteRepository favoriteRepository;
+    @Autowired
+    HistoryService historyService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    //get lastest Film
     public Page<FilmSummary> getLatestFilms(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Film> filmPage = filmRepository.findAll(pageable);
@@ -49,69 +65,159 @@ public class FilmService {
         return new PageImpl<>(filmSummaries, pageable, filmPage.getTotalElements());
     }
 
-    public Film getFilmDetailBySlug(String slug) {
-        return filmRepository.findBySlug(slug)
+
+    //Filter film by type
+    public Page<FilmSummary> filterFilmsByType(String type, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Film> filmPage = filmRepository.findByType(type, pageable);
+
+        Page<FilmSummary> filmSummariesPage = filmPage.map(film -> {
+            FilmSummary summary = new FilmSummary();
+            summary.setId(film.getId());
+            summary.setName(film.getName());
+            summary.setSlug(film.getSlug());
+            summary.setOrigin_name(film.getOrigin_name());
+            summary.setPoster_url(film.getPoster_url());
+            summary.setThumb_url(film.getThumb_url());
+            summary.setYear(film.getYear());
+            return summary;
+        });
+
+        return filmSummariesPage;
+    }
+
+
+
+
+    //find by category
+    public Page<FilmSummary> filterFilmsByCategory(String categoryName, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        // Tìm phim theo tên category
+        Page<Film> filmPage = filmRepository.findByCategories_Name(categoryName, pageable);
+
+        // Chuyển đổi từ Film -> FilmSummary
+        return filmPage.map(film -> {
+            FilmSummary summary = new FilmSummary();
+            summary.setId(film.getId());
+            summary.setName(film.getName());
+            summary.setSlug(film.getSlug());
+            summary.setOrigin_name(film.getOrigin_name());
+            summary.setPoster_url(film.getPoster_url());
+            summary.setThumb_url(film.getThumb_url());
+            summary.setYear(film.getYear());
+            return summary;
+        });
+    }
+
+
+
+    //find by country
+    public Page<FilmSummary> filterFilmsByCountry(String countryName, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        // Tìm phim theo tên quốc gia
+        Page<Film> filmPage = filmRepository.findByCountries_Name(countryName, pageable);
+
+        // Chuyển đổi từ Film -> FilmSummary
+        return filmPage.map(film -> {
+            FilmSummary summary = new FilmSummary();
+            summary.setId(film.getId());
+            summary.setName(film.getName());
+            summary.setSlug(film.getSlug());
+            summary.setOrigin_name(film.getOrigin_name());
+            summary.setPoster_url(film.getPoster_url());
+            summary.setThumb_url(film.getThumb_url());
+            summary.setYear(film.getYear());
+            return summary;
+        });
+    }
+
+
+
+
+
+    // get film detail by slug and save watch history of user
+    public Film getFilmDetailBySlug(String slug, Optional<String> username) {
+        // Lấy phim theo slug
+        Film film = filmRepository.findBySlug(slug)
                 .orElseThrow(() -> new RuntimeException("Film not found with slug: " + slug));
-    }
 
-    public Film createFilm(FilmDTO filmDTO) {
-        if (filmRepository.existsBySlug(filmDTO.getSlug())) {
-            throw new IllegalArgumentException("Slug đã tồn tại!");
-        }
+        // Kiểm tra xem username có giá trị không, nếu có thì lưu lịch sử xem
+        username.ifPresent(user -> historyService.saveWatchHistory(user, film.getId()));
 
-
-        Film film = new Film();
-
-        film.setName(filmDTO.getName());
-        film.setSlug(filmDTO.getSlug());
-        film.setOrigin_name(filmDTO.getOrigin_name());
-        film.setPoster_url(filmDTO.getPoster_url());
-        film.setThumb_url(filmDTO.getThumb_url());
-        film.setYear(filmDTO.getYear());
-        film.setContent(filmDTO.getContent());
-        film.setStatus(filmDTO.getStatus());
-        film.setTime(filmDTO.getTime());
-        film.setEpisode_current(filmDTO.getEpisode_current());
-        film.setEpisode_total(filmDTO.getEpisode_total());
-        film.setView(filmDTO.getView());
-        film.setActor(filmDTO.getActor());
-        film.setDirector(filmDTO.getDirector());
-
-
-        if (filmDTO.getCategoryIds() != null) {
-            List<Category> categories = categoryRepository.findAllById(filmDTO.getCategoryIds());
-            film.setCategories(categories);
-        }
-
-        if (filmDTO.getCountryIds() != null) {
-            List<Country> countries = countryRepository.findAllById(filmDTO.getCountryIds());
-            film.setCountries(countries);
-        }
-
-        if (filmDTO.getEpisodes() != null) {
-            List<Episode> episodes = filmDTO.getEpisodes().stream()
-                    .map(episodeDTO -> {
-                        Episode episode = new Episode();
-                        episode.setId(episodeDTO.getId());
-                        episode.setName(episodeDTO.getName());
-                        episode.setSlug(episodeDTO.getSlug());
-                        episode.setFilename(episodeDTO.getFilename());
-                        episode.setLink_embed(episodeDTO.getLink_embed());
-                        episode.setLink_m3u8(episodeDTO.getLink_m3u8());
-                        episode.setFilm(film);
-                        return episode;
-                    })
-                    .collect(Collectors.toList());
-            film.setEpisodes(episodes);
-        }
-
-        return filmRepository.save(film);
+        // Trả về chi tiết phim
+        return film;
     }
 
 
 
+    //create list film
+    public List<Film> createFilms(List<FilmDTO> filmDTOs) {
+        List<Film> createdFilms = new ArrayList<>();
+
+        for (FilmDTO filmDTO : filmDTOs) {
+            if (filmRepository.existsBySlug(filmDTO.getSlug())) {
+                throw new IllegalArgumentException("Slug đã tồn tại cho phim: " + filmDTO.getName());
+            }
+
+            Film film = new Film();
+            film.setName(filmDTO.getName());
+            film.setSlug(filmDTO.getSlug());
+            film.setOrigin_name(filmDTO.getOrigin_name());
+            film.setPoster_url(filmDTO.getPoster_url());
+            film.setThumb_url(filmDTO.getThumb_url());
+            film.setYear(filmDTO.getYear());
+            film.setType(filmDTO.getType());
+            film.setContent(filmDTO.getContent());
+            film.setStatus(filmDTO.getStatus());
+            film.setTime(filmDTO.getTime());
+            film.setEpisode_current(filmDTO.getEpisode_current());
+            film.setEpisode_total(filmDTO.getEpisode_total());
+            film.setView(filmDTO.getView());
+            film.setActor(filmDTO.getActor());
+            film.setDirector(filmDTO.getDirector());
 
 
+            if (filmDTO.getCategoryIds() != null) {
+                List<Category> categories = categoryRepository.findAllById(filmDTO.getCategoryIds());
+                film.setCategories(categories);
+            }
+
+
+            if (filmDTO.getCountryIds() != null) {
+                List<Country> countries = countryRepository.findAllById(filmDTO.getCountryIds());
+                film.setCountries(countries);
+            }
+
+
+            if (filmDTO.getEpisodes() != null) {
+                List<Episode> episodes = filmDTO.getEpisodes().stream()
+                        .map(episodeDTO -> {
+                            Episode episode = new Episode();
+                            episode.setId(episodeDTO.getId());
+                            episode.setName(episodeDTO.getName());
+                            episode.setSlug(episodeDTO.getSlug());
+                            episode.setFilename(episodeDTO.getFilename());
+                            episode.setLink_embed(episodeDTO.getLink_embed());
+                            episode.setLink_m3u8(episodeDTO.getLink_m3u8());
+                            episode.setFilm(film);
+                            return episode;
+                        })
+                        .collect(Collectors.toList());
+                film.setEpisodes(episodes);
+            }
+
+            Film savedFilm = filmRepository.save(film);
+            createdFilms.add(savedFilm);
+        }
+
+        return createdFilms;
+    }
+
+
+
+    //update film
     public Film updateFilm(Long id, Film filmDetails) {
         Film film = filmRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Film not found with id: " + id));
@@ -164,6 +270,7 @@ public class FilmService {
     }
 
 
+    //delete film
     public void deleteFilm(Long id) {
         Film film = filmRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Film not found with id: " + id));
@@ -171,5 +278,117 @@ public class FilmService {
     }
 
 
+    //add film to favorite
+    public Favorite addFilmToFavorites(FavoriteDTO favoriteDTO) {
 
+        Film film = filmRepository.findBySlug(favoriteDTO.getSlug())
+                .orElseThrow(() -> new IllegalArgumentException("Film not found"));
+
+
+        User user = userRepository.findByUserName(favoriteDTO.getUsername())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+
+        Optional<Favorite> existingFavorite = favoriteRepository.findByFilmAndUser(film, user);
+        if (existingFavorite.isPresent()) {
+            throw new RuntimeException("Phim đã có trong danh sách yêu thích của bạn");
+        }
+
+
+        Favorite favorite = new Favorite();
+        favorite.setUsername(favoriteDTO.getUsername());
+        favorite.setFilm(film);
+        favorite.setUser(user);
+        favorite.setCreatedAt(LocalDateTime.now());
+
+        return favoriteRepository.save(favorite);
+
+    }
+
+
+//    remove film from favorite
+    public ResponseEntity<String> removeFilmFromFavorites(FavoriteDTO favoriteDTO) {
+
+        Film film = filmRepository.findBySlug(favoriteDTO.getSlug())
+                .orElseThrow(() -> new IllegalArgumentException("Film not found"));
+
+
+        User user = userRepository.findByUserName(favoriteDTO.getUsername())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+
+        Optional<Favorite> existingFavorite = favoriteRepository.findByFilmAndUser(film, user);
+        if (existingFavorite.isEmpty()) {
+            return ResponseEntity.badRequest().body("Phim không có trong danh sách yêu thích của bạn");
+        }
+
+        favoriteRepository.delete(existingFavorite.get());
+        return ResponseEntity.ok("Phim đã được xóa khỏi danh sách yêu thích của bạn");
+    }
+
+
+
+
+    // get favorite film by UserName
+    public Page<FilmSummary> getFavoritesByUser(String username, int page, int size) {
+        User user = userRepository.findByUserName(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Favorite> favoritesPage = favoriteRepository.findByUser(user, pageable);
+
+        // Chuyển đổi từ Favorite -> Film -> FilmSummary
+        Page<FilmSummary> filmSummariesPage = favoritesPage.map(favorite -> {
+            Film film = favorite.getFilm();
+            FilmSummary filmSummary = new FilmSummary();
+            filmSummary.setId(film.getId());
+            filmSummary.setName(film.getName());
+            filmSummary.setSlug(film.getSlug());
+            filmSummary.setOrigin_name(film.getOrigin_name());
+            filmSummary.setPoster_url(film.getPoster_url());
+            filmSummary.setThumb_url(film.getThumb_url());
+            filmSummary.setYear(film.getYear());
+            return filmSummary;
+        });
+
+        return filmSummariesPage;
+    }
+
+
+
+
+    //search film and sort by newest time
+    public List<Film> searchFilmsByKeywords(String keyword) {
+        String[] keywords = keyword.trim().toLowerCase().split("\\s+");
+
+        StringBuilder queryBuilder = new StringBuilder("SELECT f FROM Film f WHERE ");
+        for (int i = 0; i < keywords.length; i++) {
+            if (i > 0) {
+                queryBuilder.append(" OR ");
+            }
+            queryBuilder.append("(")
+                    .append("LOWER(f.name) LIKE LOWER(CONCAT('%', :keyword" + i + ", '%')) OR ")
+                    .append("LOWER(f.origin_name) LIKE LOWER(CONCAT('%', :keyword" + i + ", '%')) OR ")
+                    .append("LOWER(REPLACE(f.slug, '-', ' ')) LIKE LOWER(CONCAT('%', :keyword" + i + ", '%'))")
+                    .append(")");
+        }
+
+        TypedQuery<Film> query = entityManager.createQuery(queryBuilder.toString(), Film.class);
+        for (int i = 0; i < keywords.length; i++) {
+            query.setParameter("keyword" + i, keywords[i]);
+        }//thiết lập các tham số cho truy vấn động (Dùng entityManager để thao tác với db)
+
+
+        List<Film> films = query.getResultList();
+
+
+        films.sort((f1, f2) -> {
+            LocalDateTime modifiedTime1 = f1.getModified().getTime();
+            LocalDateTime modifiedTime2 = f2.getModified().getTime();
+            return modifiedTime2.compareTo(modifiedTime1);
+        });
+
+        return films;
+    }
 }

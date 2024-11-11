@@ -12,6 +12,7 @@ public class FilmDTO {
     private String poster_url;
     private String thumb_url;
     private int year;
+    private String type;
     private String content;
     private String status;
     private String time;
