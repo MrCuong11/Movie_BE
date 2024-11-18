@@ -9,10 +9,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -57,6 +54,7 @@ public class FilmService {
                     summary.setOrigin_name(film.getOrigin_name());
                     summary.setPoster_url(film.getPoster_url());
                     summary.setThumb_url(film.getThumb_url());
+                    summary.setView(film.getView());
                     summary.setYear(film.getYear());
                     return summary;
                 })
@@ -79,11 +77,34 @@ public class FilmService {
             summary.setOrigin_name(film.getOrigin_name());
             summary.setPoster_url(film.getPoster_url());
             summary.setThumb_url(film.getThumb_url());
+            summary.setView(film.getView());
             summary.setYear(film.getYear());
             return summary;
         });
 
         return filmSummariesPage;
+    }
+
+
+// sort by view
+    public Page<FilmSummary> sortByView(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "view"));
+
+        Page<Film> filmPage = filmRepository.findAll(pageable);
+
+        // Chuyển đổi từ Film sang FilmSummary
+        return filmPage.map(film -> {
+            FilmSummary summary = new FilmSummary();
+            summary.setId(film.getId());
+            summary.setName(film.getName());
+            summary.setSlug(film.getSlug());
+            summary.setOrigin_name(film.getOrigin_name());
+            summary.setPoster_url(film.getPoster_url());
+            summary.setThumb_url(film.getThumb_url());
+            summary.setView(film.getView());
+            summary.setYear(film.getYear());
+            return summary;
+        });
     }
 
 
@@ -105,6 +126,7 @@ public class FilmService {
             summary.setOrigin_name(film.getOrigin_name());
             summary.setPoster_url(film.getPoster_url());
             summary.setThumb_url(film.getThumb_url());
+            summary.setView(film.getView());
             summary.setYear(film.getYear());
             return summary;
         });
@@ -128,6 +150,7 @@ public class FilmService {
             summary.setOrigin_name(film.getOrigin_name());
             summary.setPoster_url(film.getPoster_url());
             summary.setThumb_url(film.getThumb_url());
+            summary.setView(film.getView());
             summary.setYear(film.getYear());
             return summary;
         });
@@ -137,16 +160,14 @@ public class FilmService {
 
 
 
-    // get film detail by slug and save watch history of user
+    // get film detail by slug and save watch history of user (if any)
     public Film getFilmDetailBySlug(String slug, Optional<String> username) {
-        // Lấy phim theo slug
         Film film = filmRepository.findBySlug(slug)
                 .orElseThrow(() -> new RuntimeException("Film not found with slug: " + slug));
 
-        // Kiểm tra xem username có giá trị không, nếu có thì lưu lịch sử xem
         username.ifPresent(user -> historyService.saveWatchHistory(user, film.getId()));
-
-        // Trả về chi tiết phim
+        film.setView(film.getView() + 100);
+        filmRepository.save(film);
         return film;
     }
 
@@ -348,6 +369,7 @@ public class FilmService {
             filmSummary.setOrigin_name(film.getOrigin_name());
             filmSummary.setPoster_url(film.getPoster_url());
             filmSummary.setThumb_url(film.getThumb_url());
+            filmSummary.setView(film.getView());
             filmSummary.setYear(film.getYear());
             return filmSummary;
         });
@@ -398,6 +420,7 @@ public class FilmService {
             summary.setOrigin_name(film.getOrigin_name());
             summary.setPoster_url(film.getPoster_url());
             summary.setThumb_url(film.getThumb_url());
+            summary.setView(film.getView());
             summary.setYear(film.getYear());
             return summary;
         }).collect(Collectors.toList());

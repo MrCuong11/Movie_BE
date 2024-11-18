@@ -70,6 +70,27 @@ public class FilmController {
 
 
 
+    @Operation(
+            summary = "Trả về danh sách phim theo view giảm dần",
+            description = "Trả về danh sách các phim theo view giảm dần, giới hạn theo số trang và số lượng mỗi trang."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Thành công"),
+            @ApiResponse(responseCode = "400", description = "Yêu cầu không hợp lệ"),
+            @ApiResponse(responseCode = "500", description = "Lỗi máy chủ nội bộ")
+    })
+    @GetMapping("/sortByView")
+    public ResponseEntity<Object> sortFilm(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+
+        Page<FilmSummary> films = filmService.sortByView(page - 1, pageSize);
+        return ResponseEntity.ok(createResponse(films));
+    }
+
+
+
+
     // Lọc phim theo thể loại và trả về kết quả phân trang
     @Operation(summary = "Lọc phim theo thể loại", description = "Trả về danh sách phim được phân trang theo thể loại.")
     @ApiResponses(value = {

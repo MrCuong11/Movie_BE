@@ -10,5 +10,6 @@ public class FilmSummary {
     private String origin_name;
     private String poster_url;
     private String thumb_url;
+    private int view;
     private int year;
 }
