@@ -36,15 +36,26 @@ public class FilmService {
     private FavoriteRepository favoriteRepository;
     @Autowired
     HistoryService historyService;
+    @Autowired
+    NotificationService notificationService;
+
+    @Autowired
+    private ApplicationStateRepository applicationStateRepository;
+
+    private Long previousTotalElements = 0L;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     //get lastest Film
     public Page<FilmSummary> getLatestFilms(int page, int size) {
+        applicationStateRepository.findTopByOrderByIdDesc()
+                .ifPresent(state -> previousTotalElements = state.getPreviousTotalElements());
+
         Pageable pageable = PageRequest.of(page, size);
         Page<Film> filmPage = filmRepository.findAll(pageable);
 
+        // Chuyển đổi danh sách phim thành FilmSummary
         List<FilmSummary> filmSummaries = filmPage.getContent().stream()
                 .map(film -> {
                     FilmSummary summary = new FilmSummary();
@@ -60,7 +71,26 @@ public class FilmService {
                 })
                 .collect(Collectors.toList());
 
+
+        if (previousTotalElements > 0 && filmPage.getTotalElements() > previousTotalElements) {
+            Long totalFilmUpdate = filmPage.getTotalElements() - previousTotalElements;
+            sendNotificationToUsers(totalFilmUpdate);
+        }
+
+        previousTotalElements = filmPage.getTotalElements();
+        ApplicationState applicationState = new ApplicationState();
+        applicationState.setPreviousTotalElements(previousTotalElements);
+        applicationStateRepository.save(applicationState);
+
         return new PageImpl<>(filmSummaries, pageable, filmPage.getTotalElements());
+    }
+
+    private void sendNotificationToUsers(Long totalFilmUpdate) {
+        List<User> users = userRepository.findAll();
+        users.forEach(user -> {
+            String message = "Có "+ totalFilmUpdate +" phim mới cập nhật!";
+            notificationService.createNotification(user, message, "NEW_FILM_UPDATE", null);
+        });
     }
 
 
@@ -328,24 +358,22 @@ public class FilmService {
 
 
 //    remove film from favorite
-    public ResponseEntity<String> removeFilmFromFavorites(FavoriteDTO favoriteDTO) {
+    public void removeFilmFromFavorites(String userName, String slug) {
 
-        Film film = filmRepository.findBySlug(favoriteDTO.getSlug())
+        Film film = filmRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Film not found"));
 
-
-        User user = userRepository.findByUserName(favoriteDTO.getUsername())
+        User user = userRepository.findByUserName(userName)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
 
         Optional<Favorite> existingFavorite = favoriteRepository.findByFilmAndUser(film, user);
         if (existingFavorite.isEmpty()) {
-            return ResponseEntity.badRequest().body("Phim không có trong danh sách yêu thích của bạn");
+            throw new IllegalArgumentException("Phim không có trong danh sách yêu thích của bạn");
         }
 
         favoriteRepository.delete(existingFavorite.get());
-        return ResponseEntity.ok("Phim đã được xóa khỏi danh sách yêu thích của bạn");
     }
+
 
 
 

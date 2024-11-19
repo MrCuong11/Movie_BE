@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,17 +36,26 @@ public class HistoryService {
         User user = userRepository.findByUserName(username)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-
         Film film = filmRepository.findById(filmId)
                 .orElseThrow(() -> new IllegalArgumentException("Film not found"));
 
-        History history = new History();
-        history.setUser(user);
-        history.setFilm(film);
-        history.setWatchTime(LocalDateTime.now());
+        Optional<History> existingHistory = historyRepository.findByUserAndFilm(user, film);
 
-        historyRepository.save(history);
+        if (existingHistory.isPresent()) {
+            History history = existingHistory.get();
+            history.setWatchTime(LocalDateTime.now());
+            historyRepository.save(history);
+        } else {
+
+            History history = new History();
+            history.setUser(user);
+            history.setFilm(film);
+            history.setWatchTime(LocalDateTime.now());
+            historyRepository.save(history);
+        }
     }
+
+
 
 
 
@@ -81,6 +91,34 @@ public class HistoryService {
         });
         return new PageImpl<>(historySummaries, pageable, historySummaries.size());
     }
+
+
+    public void removeHistoryByFilm(String username, Long filmId) {
+        User user = userRepository.findByUserName(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Film film = filmRepository.findById(filmId)
+                .orElseThrow(() -> new IllegalArgumentException("Film not found"));
+
+        History history = historyRepository.findByUserAndFilm(user, film)
+                .orElseThrow(() -> new IllegalArgumentException("Watch history not found"));
+
+        historyRepository.delete(history);
+    }
+
+    public void removeAllHistoryByUser(String username) {
+        User user = userRepository.findByUserName(username)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        List<History> histories = historyRepository.findByUser(user);
+        if (histories.isEmpty()) {
+            throw new IllegalArgumentException("No watch history found for this user");
+        }
+
+        historyRepository.deleteAll(histories);
+    }
+
+
 
 
 

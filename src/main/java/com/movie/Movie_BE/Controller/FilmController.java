@@ -162,7 +162,7 @@ public class FilmController {
     @PostMapping("/phim")
     public ResponseEntity<List<Film>> createFilms(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Danh sách các phim mới cần tạo",
+                    description = "Danh sách các phim mới cần tạo (vì là list phim nên thêm hộ [ ] ở đằng trước)",
                     required = true,
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = FilmDTO.class))
             )
@@ -263,10 +263,20 @@ public class FilmController {
             @ApiResponse(responseCode = "400", description = "Dữ liệu đầu vào không hợp lệ"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy phim trong danh sách yêu thích")
     })
-    @DeleteMapping("/removeFavorite")
-    public ResponseEntity<String> removeFilmFromFavorites(@RequestBody FavoriteDTO favoriteDTO) {
-        return filmService.removeFilmFromFavorites(favoriteDTO);
+    @DeleteMapping("/removeFavorite/{username}/{slug}")
+    public ResponseEntity<String> removeFilmFromFavorites(
+            @PathVariable String username,
+            @PathVariable String slug) {
+        try {
+            filmService.removeFilmFromFavorites(username, slug);
+            return ResponseEntity.ok("Phim đã được xóa khỏi danh sách yêu thích của bạn");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
+
+
+
 
 
     @Operation(summary = "Lấy danh sách phim yêu thích của người dùng", description = "Trả về danh sách phim yêu thích của người dùng theo trang.")

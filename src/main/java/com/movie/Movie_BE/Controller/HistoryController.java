@@ -40,4 +40,25 @@ public class HistoryController {
         Page<HistorySummary> historySummaries = historyService.getHistoryByUser(username, page - 1, size);
         return ResponseEntity.ok(createResponse(historySummaries));
     }
+
+
+    @DeleteMapping("/{username}/{filmId}")
+    public ResponseEntity<String> removeHistory(@PathVariable String username, @PathVariable Long filmId) {
+        try {
+            historyService.removeHistoryByFilm(username, filmId);
+            return ResponseEntity.ok("History removed successfully.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{username}")
+    public ResponseEntity<String> removeAllHistory(@PathVariable String username) {
+        try {
+            historyService.removeAllHistoryByUser(username);
+            return ResponseEntity.ok("All history removed successfully.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }
