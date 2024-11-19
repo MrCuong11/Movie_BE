@@ -177,7 +177,7 @@ public class FilmController {
 
     @Operation(
             summary = "Cập nhật thông tin phim",
-            description = "Cập nhật thông tin của một phim cụ thể dựa trên ID của phim và các thông tin mới được cung cấp trong request body."
+            description = "Cập nhật thông tin của một phim cụ thể dựa trên ID của phim ( cần cập nhật trường nào thì truyền vào body trường đó thôi)"
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Phim được cập nhật thành công",

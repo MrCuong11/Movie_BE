@@ -11,12 +11,14 @@ import jakarta.persistence.TypedQuery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -85,7 +87,8 @@ public class FilmService {
         return new PageImpl<>(filmSummaries, pageable, filmPage.getTotalElements());
     }
 
-    private void sendNotificationToUsers(Long totalFilmUpdate) {
+    @Async
+    void sendNotificationToUsers(Long totalFilmUpdate) {
         List<User> users = userRepository.findAll();
         users.forEach(user -> {
             String message = "Có "+ totalFilmUpdate +" phim mới cập nhật!";
@@ -270,14 +273,32 @@ public class FilmService {
 
     //update film
     public Film updateFilm(Long id, Film filmDetails) {
+        // Tìm phim theo ID
         Film film = filmRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Film not found with id: " + id));
 
-        // Cập nhật thông tin cho phim nếu có giá trị
+        // Cập nhật các thông tin cơ bản nếu có
+        updateBasicInfo(film, filmDetails);
+
+        // Cập nhật danh mục và quốc gia nếu có
+        updateCategoriesAndCountries(film, filmDetails);
+
+        // Cập nhật hoặc thêm tập phim
+        if (filmDetails.getEpisodes() != null && !filmDetails.getEpisodes().isEmpty()) {
+            updateEpisodes(film, filmDetails);
+        }
+
+        return filmRepository.save(film);
+    }
+
+    private void updateBasicInfo(Film film, Film filmDetails) {
         if (filmDetails.getName() != null) {
             film.setName(filmDetails.getName());
         }
-        if (filmDetails.getSlug() != null) {
+        if (filmDetails.getSlug() != null && !filmDetails.getSlug().equals(film.getSlug())) {
+            if (filmRepository.existsBySlug(filmDetails.getSlug())) {
+                throw new IllegalArgumentException("Slug đã tồn tại: " + filmDetails.getSlug());
+            }
             film.setSlug(filmDetails.getSlug());
         }
         if (filmDetails.getOrigin_name() != null) {
@@ -316,9 +337,70 @@ public class FilmService {
         if (filmDetails.getDirector() != null) {
             film.setDirector(filmDetails.getDirector());
         }
-
-        return filmRepository.save(film);
     }
+
+    private void updateCategoriesAndCountries(Film film, Film filmDetails) {
+        // Cập nhật danh mục và quốc gia
+        if (filmDetails.getCategories() != null && !filmDetails.getCategories().isEmpty()) {
+            List<Category> categories = categoryRepository.findAllById(
+                    filmDetails.getCategories().stream().map(Category::getId).collect(Collectors.toList())
+            );
+            film.setCategories(categories);
+        }
+
+        if (filmDetails.getCountries() != null && !filmDetails.getCountries().isEmpty()) {
+            List<Country> countries = countryRepository.findAllById(
+                    filmDetails.getCountries().stream().map(Country::getId).collect(Collectors.toList())
+            );
+            film.setCountries(countries);
+        }
+    }
+
+    private void updateEpisodes(Film film, Film filmDetails) {
+        List<Episode> existingEpisodes = film.getEpisodes() != null ? film.getEpisodes() : new ArrayList<>();
+        Map<Long, Episode> existingEpisodeMap = existingEpisodes.stream()
+                .collect(Collectors.toMap(Episode::getId, episode -> episode));
+
+        // Lấy danh sách userName yêu thích phim
+        List<Favorite> favoriteFilm = film.getFavorites();
+        List<String> userFavoriteFilms = favoriteFilm.stream()
+                .map(Favorite::getUsername)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // Lấy người dùng từ danh sách yêu thích
+        List<User> users = userRepository.findAllByUserNameIn(userFavoriteFilms);
+
+        for (Episode newEpisode : filmDetails.getEpisodes()) {
+            if (newEpisode.getId() != null && existingEpisodeMap.containsKey(newEpisode.getId())) {
+                // Cập nhật tập phim cũ
+                Episode existingEpisode = existingEpisodeMap.get(newEpisode.getId());
+                existingEpisode.setName(newEpisode.getName());
+                existingEpisode.setSlug(newEpisode.getSlug());
+                existingEpisode.setFilename(newEpisode.getFilename());
+                existingEpisode.setLink_embed(newEpisode.getLink_embed());
+                existingEpisode.setLink_m3u8(newEpisode.getLink_m3u8());
+            } else {
+                // Thêm tập phim mới
+                newEpisode.setFilm(film);  // set tập film moi cho film cụ thể
+                existingEpisodes.add(newEpisode);  // Thêm vào danh sách đã tồn tại
+                sendNotificationToUsers(users, film);
+            }
+        }
+
+        film.setEpisodes(existingEpisodes);
+    }
+
+    @Async
+    void sendNotificationToUsers(List<User> users, Film film) {
+        String message = film.getName() + " đã cập nhật thêm tập phim mới!";
+        for (User user : users) {
+            notificationService.createNotification(user, message, "UPDATE_FILM", film.getId());
+        }
+    }
+
+    //end update film
+
 
 
     //delete film

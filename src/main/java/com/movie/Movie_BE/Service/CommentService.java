@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class CommentService {
@@ -23,13 +25,19 @@ public class CommentService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
+
     public Comment saveComment(CommentDTO commentDTO) {
 
         Film film = filmRepository.findBySlug(commentDTO.getSlug())
                 .orElseThrow(() -> new RuntimeException("Film not found"));
 
+
         User user = userRepository.findByUserName(commentDTO.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
 
         Comment comment = new Comment();
         comment.setContent(commentDTO.getContent());
@@ -37,9 +45,22 @@ public class CommentService {
         comment.setCreatedAt(LocalDateTime.now());
         comment.setFilm(film);
         comment.setUser(user);
+        comment = commentRepository.save(comment);
 
-        return commentRepository.save(comment);
+        List<Comment> filmComments = film.getComments();
+
+        List<String> otherUserNames = filmComments.stream()
+                .map(Comment::getUsername)
+                .filter(userName -> !userName.equals(commentDTO.getUsername()))
+                .distinct()
+                .collect(Collectors.toList());
+
+
+        String message = "Người dùng: " + commentDTO.getUsername() + " cũng đã bình luận về phim " + film.getName();
+        notificationService.sendNotificationToUsers(otherUserNames, message, film.getId());
+        return comment;
     }
+
 
     public Comment updateComment (Long id, String userName, String newContent){
         Comment comment = commentRepository.findById(id)
