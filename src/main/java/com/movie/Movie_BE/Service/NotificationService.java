@@ -46,10 +46,8 @@ public class NotificationService {
 
     @Async
     public void sendNotificationToUsers(List<String> otherUserNames, String message, Long filmId) {
-        otherUserNames.forEach(otherUserName -> {
-            User otherUser = userRepository.findByUserName(otherUserName)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            createNotification(otherUser, message, "ADD_COMMENT", filmId);
-        });
+        List<User> otherUsers = userRepository.findByUserNameIn(otherUserNames);
+        otherUsers.forEach(user -> createNotification(user, message, "ADD_COMMENT", filmId));
     }
+
 }
