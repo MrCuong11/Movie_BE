@@ -11,7 +11,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class Episode {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @JsonIgnore
     private Long id;
 
     private String name;

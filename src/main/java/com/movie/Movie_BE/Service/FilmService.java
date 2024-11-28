@@ -8,6 +8,7 @@ import com.movie.Movie_BE.dto.FilmSummary;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
@@ -194,15 +195,18 @@ public class FilmService {
 
 
     // get film detail by slug and save watch history of user (if any)
+    @Transactional
     public Film getFilmDetailBySlug(String slug, Optional<String> username) {
         Film film = filmRepository.findBySlug(slug)
                 .orElseThrow(() -> new RuntimeException("Film not found with slug: " + slug));
 
         username.ifPresent(user -> historyService.saveWatchHistory(user, film.getId()));
-        film.setView(film.getView() + 100);
-        filmRepository.save(film);
+
+        // cập nhật view mới
+        filmRepository.updateViewWithoutModified(film.getId(), film.getView() + 100);
         return film;
     }
+
 
 
 
@@ -283,11 +287,6 @@ public class FilmService {
         // Cập nhật danh mục và quốc gia nếu có
         updateCategoriesAndCountries(film, filmDetails);
 
-        // Cập nhật hoặc thêm tập phim
-        if (filmDetails.getEpisodes() != null && !filmDetails.getEpisodes().isEmpty()) {
-            updateEpisodes(film, filmDetails);
-        }
-
         return filmRepository.save(film);
     }
 
@@ -322,6 +321,9 @@ public class FilmService {
         if (filmDetails.getTime() != null) {
             film.setTime(filmDetails.getTime());
         }
+        if (filmDetails.getType() != null) {
+            film.setType(filmDetails.getType());
+        }
         if (filmDetails.getEpisode_current() != null) {
             film.setEpisode_current(filmDetails.getEpisode_current());
         }
@@ -355,50 +357,6 @@ public class FilmService {
             film.setCountries(countries);
         }
     }
-
-    private void updateEpisodes(Film film, Film filmDetails) {
-        List<Episode> existingEpisodes = film.getEpisodes() != null ? film.getEpisodes() : new ArrayList<>();
-        Map<Long, Episode> existingEpisodeMap = existingEpisodes.stream()
-                .collect(Collectors.toMap(Episode::getId, episode -> episode));
-
-        // Lấy danh sách userName yêu thích phim
-        List<Favorite> favoriteFilm = film.getFavorites();
-        List<String> userFavoriteFilms = favoriteFilm.stream()
-                .map(Favorite::getUsername)
-                .distinct()
-                .collect(Collectors.toList());
-
-        // Lấy người dùng từ danh sách yêu thích
-        List<User> users = userRepository.findAllByUserNameIn(userFavoriteFilms);
-
-        for (Episode newEpisode : filmDetails.getEpisodes()) {
-            if (newEpisode.getId() != null && existingEpisodeMap.containsKey(newEpisode.getId())) {
-                // Cập nhật tập phim cũ
-                Episode existingEpisode = existingEpisodeMap.get(newEpisode.getId());
-                existingEpisode.setName(newEpisode.getName());
-                existingEpisode.setSlug(newEpisode.getSlug());
-                existingEpisode.setFilename(newEpisode.getFilename());
-                existingEpisode.setLink_embed(newEpisode.getLink_embed());
-                existingEpisode.setLink_m3u8(newEpisode.getLink_m3u8());
-            } else {
-                // Thêm tập phim mới
-                newEpisode.setFilm(film);  // set tập film moi cho film cụ thể
-                existingEpisodes.add(newEpisode);  // Thêm vào danh sách đã tồn tại
-                sendNotificationToUsers(users, film);
-            }
-        }
-
-        film.setEpisodes(existingEpisodes);
-    }
-
-    @Async
-    void sendNotificationToUsers(List<User> users, Film film) {
-        String message = film.getName() + " đã cập nhật thêm tập phim mới!";
-        for (User user : users) {
-            notificationService.createNotification(user, message, "UPDATE_FILM", film.getId());
-        }
-    }
-
     //end update film
 
 
