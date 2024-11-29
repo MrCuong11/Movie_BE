@@ -66,9 +66,9 @@ public class EpisodeController {
             @ApiResponse(responseCode = "200", description = "Danh sách các tập phim đã được lấy thành công"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy bộ phim")
     })
-    @GetMapping("/{filmId}/episodes")
-    public ResponseEntity<List<Episode>> getAllEpisodes(@PathVariable Long filmId) {
-        List<Episode> episodes = episodeService.getAllEpisodes(filmId);
+    @GetMapping("/{slug}/episodes")
+    public ResponseEntity<List<Episode>> getAllEpisodes(@PathVariable String slug) {
+        List<Episode> episodes = episodeService.getAllEpisodes(slug);
         return ResponseEntity.ok(episodes);
     }
 }

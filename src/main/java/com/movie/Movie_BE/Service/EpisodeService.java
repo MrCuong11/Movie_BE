@@ -108,13 +108,12 @@ public class EpisodeService {
 
 
     @Transactional
-    public List<Episode> getAllEpisodes(Long filmId) {
-        // Lấy phim từ database
-        Film film = filmRepository.findById(filmId)
+    public List<Episode> getAllEpisodes(String slug) {
+        List<Episode> episodes = episodeRepository.findByFilmSlug(slug)
                 .orElseThrow(() -> new RuntimeException("Film id not found"));
 
         // Trả về danh sách tập phim
-        return film.getEpisodes();
+        return episodes;
     }
 }
 
