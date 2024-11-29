@@ -1,12 +1,15 @@
 package com.movie.Movie_BE.Controller;
 
 import com.movie.Movie_BE.Model.Notification;
+import com.movie.Movie_BE.Model.TokenRequest;
 import com.movie.Movie_BE.Service.NotificationService;
+import com.movie.Movie_BE.Service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,7 +21,8 @@ public class NotificationController {
 
     @Autowired
     private NotificationService notificationService;
-
+    @Autowired
+    private UserService userService;
 
 
 
@@ -66,4 +70,38 @@ public class NotificationController {
         notificationService.deleteNotification(notificationId);
         return ResponseEntity.ok("Xóa thành công");
     }
+
+
+
+
+
+
+
+
+
+    @PostMapping("/saveToken")
+    public ResponseEntity<String> saveFcmToken(@RequestBody TokenRequest tokenRequest) {
+        try {
+            userService.saveFcmToken(tokenRequest.getUsername(), tokenRequest.getFcmToken());
+            return ResponseEntity.ok("Token saved successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to save token");
+        }
+    }
+
+    @Operation(summary = "Cập nhật FCM Token cho người dùng", description = "Cập nhật FCM token mới khi người dùng đăng nhập hoặc token thay đổi.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Cập nhật token thành công"),
+            @ApiResponse(responseCode = "400", description = "Cập nhật token thất bại")
+    })
+    @PutMapping("/updateToken")
+    public ResponseEntity<String> updateFcmToken(@RequestBody TokenRequest tokenRequest) {
+        try {
+            userService.saveFcmToken(tokenRequest.getUsername(), tokenRequest.getFcmToken());
+            return ResponseEntity.ok("Token updated successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to update token: " + e.getMessage());
+        }
+    }
 }
+//    chưa xong

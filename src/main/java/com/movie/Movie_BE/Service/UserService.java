@@ -22,4 +22,20 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
+
+    public void saveFcmToken(String username, String fcmToken) {
+        User user = userRepository.findByUserName(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Lưu token vào cơ sở dữ liệu
+        if (fcmToken != null && !fcmToken.isEmpty()) {
+            // Cập nhật hoặc lưu token mới
+            user.setFcmToken(fcmToken);
+            userRepository.save(user);
+        } else {
+            throw new IllegalArgumentException("FCM token không hợp lệ");
+        }
+    }
 }
+//chưa xong

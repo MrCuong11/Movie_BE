@@ -15,6 +15,7 @@ import java.util.List;
 public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final PushNotificationService pushNotificationService;
     public void createNotification(User user, String message, String actionType, Long relatedId) {
         Notification notification = new Notification();
         notification.setUser(user);
@@ -47,7 +48,20 @@ public class NotificationService {
     @Async
     public void sendNotificationToUsers(List<String> otherUserNames, String message, Long filmId) {
         List<User> otherUsers = userRepository.findByUserNameIn(otherUserNames);
-        otherUsers.forEach(user -> createNotification(user, message, "ADD_COMMENT", filmId));
+        otherUsers.forEach(user -> {
+            String fcmToken = user.getFcmToken();
+            if (fcmToken != null && !fcmToken.isEmpty()) {
+                String title = "Bình luận mới";
+                String body = message;
+                try {
+                    pushNotificationService.sendPushNotification(fcmToken, title, body);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            createNotification(user, message, "ADD_COMMENT", filmId);
+        });
     }
 
 }
+//    chưa xong
